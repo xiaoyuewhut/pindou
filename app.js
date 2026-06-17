@@ -10,8 +10,8 @@
   const state = {
     srcImage: null,        // HTMLImageElement
     grid: null,            // 二维数组 grid[y][x] = palette index (或 -1 = 空/透明)
-    gridW: 48,
-    gridH: 48,
+    gridW: 71,
+    gridH: 71,
     cellSize: 16,          // 当前每格的像素大小 (受缩放影响)
     baseCellSize: 16,      // 100% 缩放时的格子大小
     zoom: 1,
@@ -574,7 +574,7 @@
         $('src-preview').classList.remove('hidden');
         // 自适应默认宽度 ~48, 高度按比例
         const ratio = img.height / img.width;
-        let w = 48;
+        let w = 71;
         let h = Math.round(w * ratio);
         if (h > 64) { h = 64; w = Math.round(h / ratio); }
         w = clampInt(w, 4, 200);
