@@ -447,6 +447,10 @@
       el.title = `${c.code} · ${c.name} · ${c.hex}`;
       el.dataset.idx = idx;
       if (idx === state.currentColor) el.classList.add('selected');
+      const label = document.createElement('span');
+      label.className = 'pc-label';
+      label.textContent = c.code;
+      el.appendChild(label);
       el.addEventListener('click', () => setCurrentColor(idx));
       grid.appendChild(el);
     });
