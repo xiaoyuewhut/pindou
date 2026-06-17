@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>拼豆图纸生成器 · MARD221</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🫧</span>
+      <div>
+        <h1>拼豆图纸生成器</h1>
+        <p class="sub">上传图片 → 自动转为 MARD221 拼豆图纸 · 可编辑 · 可导出</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="btn-export-coded" class="btn primary" disabled>导出带色号图纸</button>
+      <button id="btn-export-png" class="btn" disabled>导出位图 PNG</button>
+      <button id="btn-export-csv" class="btn" disabled>材料清单 CSV</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左侧:工具 + 设置 -->
+    <aside class="sidebar left">
+      <section class="panel">
+        <h3>① 上传图片</h3>
+        <div id="dropzone" class="dropzone">
+          <input type="file" id="file-input" accept="image/*" hidden />
+          <div class="dz-inner">
+            <div class="dz-icon">🖼️</div>
+            <div class="dz-text">点击选择 / 拖入图片</div>
+            <div class="dz-hint">支持 JPG / PNG / WEBP</div>
+          </div>
+        </div>
+        <div id="src-preview" class="src-preview hidden">
+          <img id="src-img" alt="原图" />
+          <button id="btn-reupload" class="btn sm ghost">重新上传</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>② 图纸设置</h3>
+        <label class="field">
+          <span>配色方案</span>
+          <select id="palette-select" disabled>
+            <option value="mard221" selected>MARD 221 色 (默认)</option>
+          </select>
+        </label>
+
+        <div class="grid-size">
+          <label class="field">
+            <span>宽度 (格)</span>
+            <input type="number" id="grid-w" min="4" max="200" value="48" disabled />
+          </label>
+          <label class="field">
+            <span>高度 (格)</span>
+            <input type="number" id="grid-h" min="4" max="200" value="48" disabled />
+          </label>
+          <label class="lock">
+            <input type="checkbox" id="lock-ratio" checked />
+            <span>锁定比例</span>
+          </label>
+        </div>
+
+        <label class="field check">
+          <input type="checkbox" id="opt-dither" />
+          <span>Floyd-Steinberg 抖动</span>
+        </label>
+        <label class="field check">
+          <input type="checkbox" id="opt-include-transparent" />
+          <span>允许使用透明色</span>
+        </label>
+
+        <button id="btn-regen" class="btn primary block" disabled>重新生成图纸</button>
+      </section>
+
+      <section class="panel">
+        <h3>③ 工具</h3>
+        <div class="tools" id="tool-buttons">
+          <button class="tool active" data-tool="brush" title="画笔 (B)">🖌️<small>画笔</small></button>
+          <button class="tool" data-tool="eyedropper" title="吸管 (I)">💧<small>吸管</small></button>
+          <button class="tool" data-tool="eraser" title="橡皮 (E)">🧽<small>橡皮</small></button>
+          <button class="tool" data-tool="fill" title="填充 (G)">🪣<small>填充</small></button>
+        </div>
+
+        <div class="current-color">
+          <span class="cur-label">当前色</span>
+          <span id="cur-swatch" class="swatch big"></span>
+          <span id="cur-code" class="cur-code">—</span>
+        </div>
+
+        <div class="history-row">
+          <button id="btn-undo" class="btn sm" disabled title="撤销 (Ctrl+Z)">↶ 撤销</button>
+          <button id="btn-redo" class="btn sm" disabled title="重做 (Ctrl+Shift+Z)">↷ 重做</button>
+        </div>
+
+        <div class="replace-row">
+          <button id="btn-replace" class="btn sm block" disabled>🔁 全局替换…</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- 中间:画布 -->
+    <section class="canvas-area" id="canvas-area">
+      <div id="canvas-empty" class="canvas-empty">
+        <div class="empty-icon">🎨</div>
+        <p>上传一张图片,开始生成你的拼豆图纸</p>
+        <p class="empty-hint">默认自适应宽度约 48 格 · MARD221 配色</p>
+      </div>
+      <div id="canvas-wrap" class="canvas-wrap hidden">
+        <canvas id="board"></canvas>
+        <div id="hover-tip" class="hover-tip hidden"></div>
+      </div>
+      <div id="canvas-toolbar" class="canvas-toolbar hidden">
+        <button id="btn-zoom-out" class="btn sm ghost" title="缩小">－</button>
+        <span id="zoom-label" class="zoom-label">100%</span>
+        <button id="btn-zoom-in" class="btn sm ghost" title="放大">＋</button>
+        <button id="btn-zoom-fit" class="btn sm ghost">适合</button>
+        <span class="sep"></span>
+        <label class="field check inline">
+          <input type="checkbox" id="opt-show-grid" checked />
+          <span>网格线</span>
+        </label>
+        <label class="field check inline">
+          <input type="checkbox" id="opt-show-codes" />
+          <span>显示色号</span>
+        </label>
+        <span class="spacer"></span>
+        <span id="grid-info" class="grid-info"></span>
+      </div>
+    </section>
+
+    <!-- 右侧:调色板 + 材料清单 -->
+    <aside class="sidebar right">
+      <section class="panel">
+        <h3>调色板 · MARD221</h3>
+        <input type="text" id="palette-search" class="search" placeholder="搜索色号 / 名称 / HEX…" />
+        <div id="palette-filter" class="palette-filter">
+          <button class="pf active" data-series="ALL">全部</button>
+          <button class="pf" data-series="A">A</button>
+          <button class="pf" data-series="B">B</button>
+          <button class="pf" data-series="C">C</button>
+          <button class="pf" data-series="D">D</button>
+          <button class="pf" data-series="E">E</button>
+          <button class="pf" data-series="F">F</button>
+          <button class="pf" data-series="G">G</button>
+          <button class="pf" data-series="H">H</button>
+          <button class="pf" data-series="M">M(透明)</button>
+        </div>
+        <div id="palette-grid" class="palette-grid"></div>
+      </section>
+
+      <section class="panel">
+        <h3>材料清单 <span id="mat-summary" class="mat-summary"></span></h3>
+        <div id="materials-list" class="materials-list">
+          <p class="muted">尚未生成图纸</p>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- 全局替换对话框 -->
+  <div id="replace-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>全局替换颜色</h3>
+      <p class="muted">把图纸中所有 <b id="rep-from">某色</b> 替换为下方选择的颜色。</p>
+      <div class="rep-row">
+        <label>从色号</label>
+        <select id="rep-from-select"></select>
+        <span id="rep-from-swatch" class="swatch"></span>
+      </div>
+      <div class="rep-row">
+        <label>替换为</label>
+        <input type="text" id="rep-to-input" placeholder="输入色号,如 A03" />
+        <span id="rep-to-swatch" class="swatch"></span>
+      </div>
+      <div class="modal-actions">
+        <button id="rep-cancel" class="btn ghost">取消</button>
+        <button id="rep-ok" class="btn primary">替换</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="mard221.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
