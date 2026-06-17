@@ -288,6 +288,7 @@
     ctx.moveTo(0, RULER - 0.5); ctx.lineTo(board.width, RULER - 0.5);
     ctx.stroke();
 
+    var step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
     var tickFont = Math.max(9, Math.min(11, cs * 0.55));
     ctx.font = tickFont + 'px ui-monospace, Menlo, monospace';
     ctx.fillStyle = '#5c6470';
@@ -299,9 +300,9 @@
     ctx.textBaseline = 'bottom';
     for (let x = 0; x <= w; x++) {
       var px = ox + x * cs;
-      var isMajor = x % 10 === 0;
+      var isMajor = x % step === 0 || x % 10 === 0;
       ctx.beginPath();
-      ctx.moveTo(px + 0.5, RULER - (isMajor ? 8 : 4));
+      ctx.moveTo(px + 0.5, RULER - (x % 10 === 0 ? 8 : 4));
       ctx.lineTo(px + 0.5, RULER);
       ctx.stroke();
       if (isMajor && x < w) {
@@ -314,9 +315,9 @@
     ctx.textBaseline = 'middle';
     for (let y = 0; y <= h; y++) {
       var py = oy + y * cs;
-      var isMajor = y % 10 === 0;
+      var isMajor = y % step === 0 || y % 10 === 0;
       ctx.beginPath();
-      ctx.moveTo(RULER - (isMajor ? 8 : 4), py + 0.5);
+      ctx.moveTo(RULER - (y % 10 === 0 ? 8 : 4), py + 0.5);
       ctx.lineTo(RULER, py + 0.5);
       ctx.stroke();
       if (isMajor && y < h) {
@@ -326,28 +327,32 @@
 
     // 右侧 X 轴 (镜像)
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    var rx = ox + cw;
+    ctx.textBaseline = 'top';
     for (let x = 0; x <= w; x++) {
       var px = ox + x * cs;
-      var isMajor = x % 10 === 0;
+      var isMajor = x % step === 0 || x % 10 === 0;
       ctx.beginPath();
-      ctx.moveTo(px + 0.5, RULER - (isMajor ? 8 : 4));
-      ctx.lineTo(px + 0.5, RULER);
+      ctx.moveTo(px + 0.5, oy + ch);
+      ctx.lineTo(px + 0.5, oy + ch + (x % 10 === 0 ? 8 : 4));
       ctx.stroke();
+      if (isMajor && x < w) {
+        ctx.fillText(String(x), px + cs / 2, oy + ch + 9);
+      }
     }
 
     // 底部 Y 轴 (镜像)
-    ctx.textAlign = 'right';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    var by = oy + ch;
     for (let y = 0; y <= h; y++) {
       var py = oy + y * cs;
-      var isMajor = y % 10 === 0;
+      var isMajor = y % step === 0 || y % 10 === 0;
       ctx.beginPath();
-      ctx.moveTo(RULER - (isMajor ? 8 : 4), py + 0.5);
-      ctx.lineTo(RULER, py + 0.5);
+      ctx.moveTo(ox + cw, py + 0.5);
+      ctx.lineTo(ox + cw + (y % 10 === 0 ? 8 : 4), py + 0.5);
       ctx.stroke();
+      if (isMajor && y < h) {
+        ctx.fillText(String(y), ox + cw + 9, py + cs / 2);
+      }
     }
   }
 
