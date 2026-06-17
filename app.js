@@ -18,8 +18,8 @@
     tool: 'brush',
     currentColor: 0,       // palette index
     showGrid: true,
-    showCodes: false,
-    includeTransparent: false,
+    showCodes: true,
+    includeTransparent: true,
     dither: false,
     lockRatio: true,
     history: [],
