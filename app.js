@@ -118,55 +118,43 @@
     const grid = emptyGrid(w, h);
 
     if (state.dither) {
-      // Floyd-Steinberg 抖动: 在 CIELAB 空间扩散误差, 再匹配调色板
-      // 用 Float 数组保存误差累加后的 LAB 值
+      // Floyd-Steinberg 抖动: RGB 缓存 + LAB 空间误差计算 + 误差钳位
       const rgbToLab = window.MARD221.rgbToLab;
       const buf = new Float32Array(w * h * 3);
       for (let i = 0; i < w * h; i++) {
-        const lab = rgbToLab(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
-        buf[i * 3] = lab.L;
-        buf[i * 3 + 1] = lab.a;
-        buf[i * 3 + 2] = lab.b;
+        buf[i * 3] = data[i * 4];
+        buf[i * 3 + 1] = data[i * 4 + 1];
+        buf[i * 3 + 2] = data[i * 4 + 2];
       }
-      // LAB 转回 RGB 的近似逆变换 (用于 nearestIndex 输入)
-      function labToRgb(L, a, b) {
-        var fy = (L + 16) / 116;
-        var fx = a / 500 + fy;
-        var fz = fy - b / 200;
-        function finv(t) { return t > 0.206897 ? t * t * t : (t - 16 / 116) / 7.787; }
-        var X = 0.95047 * finv(fx);
-        var Y = 1.0 * finv(fy);
-        var Z = 1.08883 * finv(fz);
-        var R = X * 3.2406 + Y * -1.5372 + Z * -0.4986;
-        var G = X * -0.9689 + Y * 1.8758 + Z * 0.0415;
-        var Bn = X * 0.0557 + Y * -0.2040 + Z * 1.0570;
-        function gamma(c) { return c > 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : 12.92 * c; }
-        return {
-          r: Math.min(255, Math.max(0, Math.round(gamma(R) * 255))),
-          g: Math.min(255, Math.max(0, Math.round(gamma(G) * 255))),
-          b: Math.min(255, Math.max(0, Math.round(gamma(Bn) * 255)))
-        };
-      }
-      var MAX_ERR = 28;
+      var MAX_LAB_ERR = 22;
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const i = (y * w + x) * 3;
-          const L = buf[i], a = buf[i + 1], b = buf[i + 2];
-          const rgb = labToRgb(L, a, b);
-          const idx = window.MARD221.nearestIndex(rgb.r, rgb.g, rgb.b, state.includeTransparent);
+          const r = buf[i], g = buf[i + 1], b = buf[i + 2];
+          const idx = window.MARD221.nearestIndex(
+            clampByte(r), clampByte(g), clampByte(b), state.includeTransparent
+          );
           grid[y][x] = idx;
+          const pal = PALETTE[idx].rgb;
+          // 在 LAB 空间计算误差 (感知均匀)
+          const curLab = rgbToLab(clampByte(r), clampByte(g), clampByte(b));
           const palLab = window.MARD221.getLab(idx);
-          var eL = L - palLab.L;
-          var ea = a - palLab.a;
-          var eb = b - palLab.b;
-          // 限制误差幅度, 防止雪球式传播
+          var eL = curLab.L - palLab.L;
+          var ea = curLab.a - palLab.a;
+          var eb = curLab.b - palLab.b;
+          // 钳位: 限制单像素误差幅度
           var mag = Math.sqrt(eL * eL + ea * ea + eb * eb);
-          if (mag > MAX_ERR) { var s = MAX_ERR / mag; eL *= s; ea *= s; eb *= s; }
-          // 误差扩散
-          distribute(buf, w, h, x + 1, y, eL, ea, eb, 7 / 16);
-          distribute(buf, w, h, x - 1, y + 1, eL, ea, eb, 3 / 16);
-          distribute(buf, w, h, x, y + 1, eL, ea, eb, 5 / 16);
-          distribute(buf, w, h, x + 1, y + 1, eL, ea, eb, 1 / 16);
+          if (mag > MAX_LAB_ERR) { var s = MAX_LAB_ERR / mag; eL *= s; ea *= s; eb *= s; }
+          // 将 LAB 误差按比例映射回 RGB 空间用于扩散
+          var dr = r - pal.r, dg = g - pal.g, db = b - pal.b;
+          var rgbMag = Math.sqrt(dr * dr + dg * dg + db * db);
+          var labMag = Math.sqrt(eL * eL + ea * ea + eb * eb);
+          var ratio = rgbMag > 0.5 ? labMag / rgbMag : 0;
+          dr *= ratio; dg *= ratio; db *= ratio;
+          distribute(buf, w, h, x + 1, y, dr, dg, db, 7 / 16);
+          distribute(buf, w, h, x - 1, y + 1, dr, dg, db, 3 / 16);
+          distribute(buf, w, h, x, y + 1, dr, dg, db, 5 / 16);
+          distribute(buf, w, h, x + 1, y + 1, dr, dg, db, 1 / 16);
         }
       }
     } else {
