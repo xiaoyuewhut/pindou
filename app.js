@@ -525,6 +525,7 @@
     $('opt-include-transparent').disabled = !on;
     $('btn-export-coded').disabled = !on;
     $('btn-export-png').disabled = !on;
+    $('btn-export-svg').disabled = !on;
     $('btn-export-csv').disabled = !on;
     $('btn-replace').disabled = !on;
     $('grid-info').textContent = on ? `${state.gridW} × ${state.gridH} 格` : '';
@@ -604,20 +605,190 @@
   function exportBitmapPNG() {
     if (!state.grid) return;
     var w = state.gridW, h = state.gridH;
-    var cs = calcExportCellSize(24, w, h);
+    var cs = calcExportCellSize(48, w, h);
+    var ruler = Math.round(cs * 1.8);
+    var cw = w * cs, ch = h * cs;
     var c = document.createElement('canvas');
-    c.width = w * cs; c.height = h * cs;
-    const x = c.getContext('2d');
+    c.width = cw + ruler * 2; c.height = ch + ruler * 2;
+    var x = c.getContext('2d');
+    var ox = ruler, oy = ruler;
+
+    // 白底
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+
+    // 绘制格子
+    for (let y = 0; y < h; y++) {
+      for (let i = 0; i < w; i++) {
+        const idx = state.grid[y][i];
+        const px = ox + i * cs, py = oy + y * cs;
+        if (idx === TRANSPARENT) {
+          x.fillStyle = '#f6f6f6'; x.fillRect(px, py, cs, cs);
+          x.strokeStyle = '#ccc'; x.lineWidth = 1;
+          x.beginPath(); x.moveTo(px, py + cs); x.lineTo(px + cs, py); x.stroke();
+        } else {
+          x.fillStyle = PALETTE[idx].hex; x.fillRect(px, py, cs, cs);
+        }
+      }
+    }
+
+    // 网格线
+    x.strokeStyle = 'rgba(0,0,0,0.2)'; x.lineWidth = 1;
+    x.beginPath();
+    for (let i = 0; i <= w; i++) { x.moveTo(ox + i * cs + 0.5, oy); x.lineTo(ox + i * cs + 0.5, oy + ch); }
+    for (let j = 0; j <= h; j++) { x.moveTo(ox, oy + j * cs + 0.5); x.lineTo(ox + cw, oy + j * cs + 0.5); }
+    x.stroke();
+    x.strokeStyle = 'rgba(0,0,0,0.45)'; x.lineWidth = 2;
+    x.beginPath();
+    for (let i = 0; i <= w; i += 10) { x.moveTo(ox + i * cs, oy); x.lineTo(ox + i * cs, oy + ch); }
+    for (let j = 0; j <= h; j += 10) { x.moveTo(ox, oy + j * cs); x.lineTo(ox + cw, oy + j * cs); }
+    x.stroke();
+
+    // 色号
+    x.font = `600 ${Math.floor(cs / 3)}px ui-monospace, Menlo, monospace`;
+    x.textAlign = 'center'; x.textBaseline = 'middle';
     for (let y = 0; y < h; y++) {
       for (let i = 0; i < w; i++) {
         const idx = state.grid[y][i];
         if (idx === TRANSPARENT) continue;
-        x.fillStyle = PALETTE[idx].hex;
-        x.fillRect(i * cs, y * cs, cs, cs);
+        const col = PALETTE[idx]; const rgb = col.rgb;
+        const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+        x.fillStyle = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
+        x.fillText(col.code, ox + i * cs + cs / 2, oy + y * cs + cs / 2);
       }
     }
+
+    // 刻度尺
+    x.fillStyle = '#f8f9fa';
+    x.fillRect(0, 0, c.width, ruler); x.fillRect(0, 0, ruler, c.height);
+    x.fillRect(ox + cw, 0, ruler, c.height); x.fillRect(0, oy + ch, c.width, ruler);
+    x.strokeStyle = '#d0d4da'; x.lineWidth = 1;
+    x.beginPath();
+    x.moveTo(ruler - 0.5, 0); x.lineTo(ruler - 0.5, c.height);
+    x.moveTo(0, ruler - 0.5); x.lineTo(c.width, ruler - 0.5);
+    x.moveTo(ox + cw + 0.5, 0); x.lineTo(ox + cw + 0.5, c.height);
+    x.moveTo(0, oy + ch + 0.5); x.lineTo(c.width, oy + ch + 0.5);
+    x.stroke();
+
+    var step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
+    var tickFont = Math.max(9, Math.min(11, cs * 0.55));
+    x.font = tickFont + 'px ui-monospace, Menlo, monospace';
+    x.fillStyle = '#5c6470'; x.strokeStyle = '#8a929c'; x.lineWidth = 1;
+
+    // 顶部 X 轴
+    x.textAlign = 'center'; x.textBaseline = 'bottom';
+    for (let i = 0; i <= w; i++) {
+      var px = ox + i * cs; var isMaj = i % 10 === 0;
+      x.beginPath(); x.moveTo(px + 0.5, ruler - (isMaj ? 8 : 4)); x.lineTo(px + 0.5, ruler); x.stroke();
+      if ((i % step === 0 || isMaj) && i < w) x.fillText(String(i + 1), px + cs / 2, ruler - 9);
+    }
+    // 左侧 Y 轴
+    x.textAlign = 'right'; x.textBaseline = 'middle';
+    for (let j = 0; j <= h; j++) {
+      var py = oy + j * cs; var isMaj = j % 10 === 0;
+      x.beginPath(); x.moveTo(ruler - (isMaj ? 8 : 4), py + 0.5); x.lineTo(ruler, py + 0.5); x.stroke();
+      if ((j % step === 0 || isMaj) && j < h) x.fillText(String(j + 1), ruler - 9, py + cs / 2);
+    }
+    // 右侧 X 轴
+    x.textAlign = 'center'; x.textBaseline = 'top';
+    for (let i = 0; i <= w; i++) {
+      var px = ox + i * cs; var isMaj = i % 10 === 0;
+      x.beginPath(); x.moveTo(px + 0.5, oy + ch); x.lineTo(px + 0.5, oy + ch + (isMaj ? 8 : 4)); x.stroke();
+      if ((i % step === 0 || isMaj) && i < w) x.fillText(String(i + 1), px + cs / 2, oy + ch + 9);
+    }
+    // 底部 Y 轴
+    x.textAlign = 'left'; x.textBaseline = 'middle';
+    for (let j = 0; j <= h; j++) {
+      var py = oy + j * cs; var isMaj = j % 10 === 0;
+      x.beginPath(); x.moveTo(ox + cw, py + 0.5); x.lineTo(ox + cw + (isMaj ? 8 : 4), py + 0.5); x.stroke();
+      if ((j % step === 0 || isMaj) && j < h) x.fillText(String(j + 1), ox + cw + 9, py + cs / 2);
+    }
+
     downloadCanvas(c, '拼豆图纸-位图.png');
     toast('已导出位图');
+  }
+
+  function exportSVG() {
+    if (!state.grid) return;
+    var w = state.gridW, h = state.gridH;
+    var cs = 20, ruler = 36;
+    var cw = w * cs, ch = h * cs;
+    var totalW = cw + ruler * 2, totalH = ch + ruler * 2;
+    var parts = [];
+    parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`);
+    parts.push(`<rect width="${totalW}" height="${totalH}" fill="#fff"/>`);
+
+    // 刻度尺背景
+    parts.push(`<rect x="0" y="0" width="${totalW}" height="${ruler}" fill="#f8f9fa"/>`);
+    parts.push(`<rect x="0" y="0" width="${ruler}" height="${totalH}" fill="#f8f9fa"/>`);
+    parts.push(`<rect x="${ruler + cw}" y="0" width="${ruler}" height="${totalH}" fill="#f8f9fa"/>`);
+    parts.push(`<rect x="0" y="${ruler + ch}" width="${totalW}" height="${ruler}" fill="#f8f9fa"/>`);
+
+    // 格子
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var idx = state.grid[y][x];
+        var px = ruler + x * cs, py = ruler + y * cs;
+        if (idx === TRANSPARENT) {
+          parts.push(`<rect x="${px}" y="${py}" width="${cs}" height="${cs}" fill="#f6f6f6"/>`);
+          parts.push(`<line x1="${px}" y1="${py + cs}" x2="${px + cs}" y2="${py}" stroke="#ccc" stroke-width="1"/>`);
+        } else {
+          parts.push(`<rect x="${px}" y="${py}" width="${cs}" height="${cs}" fill="${PALETTE[idx].hex}"/>`);
+        }
+      }
+    }
+
+    // 网格线
+    for (var i = 0; i <= w; i++) {
+      var px = ruler + i * cs;
+      var sw = i % 10 === 0 ? 2 : 1;
+      var so = i % 10 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.2)';
+      parts.push(`<line x1="${px}" y1="${ruler}" x2="${px}" y2="${ruler + ch}" stroke="${so}" stroke-width="${sw}"/>`);
+    }
+    for (var j = 0; j <= h; j++) {
+      var py = ruler + j * cs;
+      var sw = j % 10 === 0 ? 2 : 1;
+      var so = j % 10 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.2)';
+      parts.push(`<line x1="${ruler}" y1="${py}" x2="${ruler + cw}" y2="${py}" stroke="${so}" stroke-width="${sw}"/>`);
+    }
+
+    // 色号
+    var fontSize = Math.floor(cs / 3);
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var idx = state.grid[y][x];
+        if (idx === TRANSPARENT) continue;
+        var col = PALETTE[idx]; var rgb = col.rgb;
+        var lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+        var fill = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
+        var tx = ruler + x * cs + cs / 2, ty = ruler + y * cs + cs / 2;
+        parts.push(`<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central" font-family="ui-monospace,Menlo,monospace" font-size="${fontSize}" font-weight="600" fill="${fill}">${col.code}</text>`);
+      }
+    }
+
+    // 刻度数字
+    var step = 1;
+    for (var i = 0; i < w; i++) {
+      if ((i + 1) % step === 0) {
+        var tx = ruler + i * cs + cs / 2;
+        parts.push(`<text x="${tx}" y="${ruler - 10}" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${i + 1}</text>`);
+        parts.push(`<text x="${tx}" y="${ruler + ch + 16}" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${i + 1}</text>`);
+      }
+    }
+    for (var j = 0; j < h; j++) {
+      if ((j + 1) % step === 0) {
+        var ty = ruler + j * cs + cs / 2;
+        parts.push(`<text x="${ruler - 10}" y="${ty}" text-anchor="end" dominant-baseline="central" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${j + 1}</text>`);
+        parts.push(`<text x="${ruler + cw + 10}" y="${ty}" text-anchor="start" dominant-baseline="central" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${j + 1}</text>`);
+      }
+    }
+
+    parts.push('</svg>');
+    var blob = new Blob([parts.join('\n')], { type: 'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = '拼豆图纸.svg';
+    a.click(); URL.revokeObjectURL(url);
+    toast('已导出 SVG');
   }
 
   function exportCSV() {
@@ -825,6 +996,7 @@
     // 导出
     $('btn-export-coded').addEventListener('click', exportCodedPNG);
     $('btn-export-png').addEventListener('click', exportBitmapPNG);
+    $('btn-export-svg').addEventListener('click', exportSVG);
     $('btn-export-csv').addEventListener('click', exportCSV);
 
     // 键盘
