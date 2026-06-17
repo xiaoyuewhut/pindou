@@ -306,7 +306,7 @@
       ctx.lineTo(px + 0.5, RULER);
       ctx.stroke();
       if (isMajor && x < w) {
-        ctx.fillText(String(x), px + cs / 2, RULER - 9);
+        ctx.fillText(String(x + 1), px + cs / 2, RULER - 9);
       }
     }
 
@@ -321,7 +321,7 @@
       ctx.lineTo(RULER, py + 0.5);
       ctx.stroke();
       if (isMajor && y < h) {
-        ctx.fillText(String(y), RULER - 9, py + cs / 2);
+        ctx.fillText(String(y + 1), RULER - 9, py + cs / 2);
       }
     }
 
@@ -336,7 +336,7 @@
       ctx.lineTo(px + 0.5, oy + ch + (x % 10 === 0 ? 8 : 4));
       ctx.stroke();
       if (isMajor && x < w) {
-        ctx.fillText(String(x), px + cs / 2, oy + ch + 9);
+        ctx.fillText(String(x + 1), px + cs / 2, oy + ch + 9);
       }
     }
 
@@ -351,7 +351,7 @@
       ctx.lineTo(ox + cw + (y % 10 === 0 ? 8 : 4), py + 0.5);
       ctx.stroke();
       if (isMajor && y < h) {
-        ctx.fillText(String(y), ox + cw + 9, py + cs / 2);
+        ctx.fillText(String(y + 1), ox + cw + 9, py + cs / 2);
       }
     }
   }
@@ -509,8 +509,8 @@
   function fitZoom() {
     if (!state.grid) return;
     const wrap = $('canvas-wrap');
-    const availW = wrap.clientWidth - 32;
-    const availH = wrap.clientHeight - 32;
+    const availW = wrap.clientWidth - 32 - RULER;
+    const availH = wrap.clientHeight - 32 - RULER;
     const fitX = availW / (state.gridW * state.baseCellSize);
     const fitY = availH / (state.gridH * state.baseCellSize);
     setZoom(Math.min(fitX, fitY, 4));
