@@ -519,6 +519,7 @@
   // ===== UI 启用/禁用 =====
   function enableEditingUI(on) {
     $('btn-regen').disabled = !on;
+    $('btn-reupload').disabled = !on;
     $('grid-w').disabled = !on;
     $('grid-h').disabled = !on;
     $('opt-dither').disabled = !on;
@@ -841,9 +842,7 @@
       const img = new Image();
       img.onload = () => {
         state.srcImage = img;
-        $('src-img').src = e.target.result;
-        $('src-preview').classList.remove('hidden');
-        // 自适应默认宽度 ~48, 高度按比例
+        // 自适应默认宽度 ~71, 高度按比例
         const ratio = img.height / img.width;
         let w = 71;
         let h = Math.round(w * ratio);
@@ -864,9 +863,9 @@
   // ===== 事件绑定 =====
   function bind() {
     // 上传
-    const dz = $('dropzone');
+    const dz = $('canvas-empty');
     dz.addEventListener('click', () => $('file-input').click());
-    $('file-input').addEventListener('change', (e) => handleFile(e.target.files[0]));
+    $('file-input').addEventListener('change', (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
     dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
     dz.addEventListener('drop', (e) => {

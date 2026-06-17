@@ -24,26 +24,10 @@
   </header>
 
   <main class="layout">
-    <!-- 左侧:工具 + 设置 -->
+    <!-- 左侧:设置 + 工具 -->
     <aside class="sidebar left">
       <section class="panel">
-        <h3>① 上传图片</h3>
-        <div id="dropzone" class="dropzone">
-          <input type="file" id="file-input" accept="image/*" hidden />
-          <div class="dz-inner">
-            <div class="dz-icon">🖼️</div>
-            <div class="dz-text">点击选择 / 拖入图片</div>
-            <div class="dz-hint">支持 JPG / PNG / WEBP</div>
-          </div>
-        </div>
-        <div id="src-preview" class="src-preview hidden">
-          <img id="src-img" alt="原图" />
-          <button id="btn-reupload" class="btn sm ghost">重新上传</button>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h3>② 图纸设置</h3>
+        <h3>① 图纸设置</h3>
         <label class="field">
           <span>配色方案</span>
           <select id="palette-select" disabled>
@@ -76,6 +60,7 @@
         </label>
 
         <button id="btn-regen" class="btn primary block" disabled>重新生成图纸</button>
+        <button id="btn-reupload" class="btn ghost block" style="margin-top:6px" disabled>重新上传图片</button>
       </section>
 
       <section class="panel">
@@ -107,10 +92,11 @@
 
     <!-- 中间:画布 -->
     <section class="canvas-area" id="canvas-area">
-      <div id="canvas-empty" class="canvas-empty">
-        <div class="empty-icon">🎨</div>
-        <p>上传一张图片,开始生成你的拼豆图纸</p>
-        <p class="empty-hint">默认自适应宽度约 71 格 · MARD221 配色</p>
+      <input type="file" id="file-input" accept="image/*" hidden />
+      <div id="canvas-empty" class="canvas-empty dropzone">
+        <div class="empty-icon">🖼️</div>
+        <p>点击或拖入图片，开始生成拼豆图纸</p>
+        <p class="empty-hint">支持 JPG / PNG / WEBP · 默认 71×71 格 · MARD221 配色</p>
       </div>
       <div id="canvas-wrap" class="canvas-wrap hidden">
         <canvas id="board"></canvas>
