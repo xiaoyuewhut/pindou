@@ -338,7 +338,8 @@
     hexToRgb: hexToRgb,
     nearestIndex: nearestIndex,
     nearestIndexRgb: nearestIndexRgb,
-    rgbToLab: rgbToLab
+    rgbToLab: rgbToLab,
+    getLab: getLab
   };
 
   global.MARD221 = MARD221;
