@@ -175,10 +175,10 @@
     state.history = [cloneGrid(grid)];
     state.historyIdx = 0;
     updateHistoryButtons();
-    fitZoom();
+    enableEditingUI(true);
     render();
     updateMaterials();
-    enableEditingUI(true);
+    requestAnimationFrame(() => fitZoom());
   }
 
   function distribute(buf, w, h, x, y, er, eg, eb, factor) {
@@ -204,8 +204,8 @@
     const cs = state.cellSize;
     const w = state.gridW, h = state.gridH;
     const cw = w * cs, ch = h * cs;
-    board.width = cw + RULER;
-    board.height = ch + RULER;
+    board.width = cw + RULER * 2;
+    board.height = ch + RULER * 2;
     const ox = RULER, oy = RULER;
 
     // 背景: 棋盘格透明示意
@@ -509,8 +509,8 @@
   function fitZoom() {
     if (!state.grid) return;
     const wrap = $('canvas-wrap');
-    const availW = wrap.clientWidth - 32 - RULER;
-    const availH = wrap.clientHeight - 32 - RULER;
+    const availW = wrap.clientWidth - 32 - RULER * 2;
+    const availH = wrap.clientHeight - 32 - RULER * 2;
     const fitX = availW / (state.gridW * state.baseCellSize);
     const fitY = availH / (state.gridH * state.baseCellSize);
     setZoom(Math.min(fitX, fitY, 4));
