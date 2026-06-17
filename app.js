@@ -15,7 +15,7 @@
     cellSize: 16,          // 当前每格的像素大小 (受缩放影响)
     baseCellSize: 16,      // 100% 缩放时的格子大小
     zoom: 1,
-    tool: 'brush',
+    tool: 'move',
     currentColor: 0,       // palette index
     showGrid: true,
     showCodes: true,
@@ -656,7 +656,7 @@
     // 画布交互
     board.addEventListener('mousedown', (e) => {
       if (!state.grid) return;
-      if (state.spacePanning) {
+      if (state.spacePanning || state.tool === 'move') {
         state.isDrawing = false;
         state.lastPan = { x: e.clientX, y: e.clientY };
         $('canvas-wrap').style.cursor = 'grabbing';
@@ -753,7 +753,7 @@
         return;
       }
       if (e.ctrlKey || e.metaKey) return;
-      const map = { KeyB: 'brush', KeyI: 'eyedropper', KeyE: 'eraser', KeyG: 'fill' };
+      const map = { KeyV: 'move', KeyB: 'brush', KeyI: 'eyedropper', KeyE: 'eraser', KeyG: 'fill' };
       const t = map[e.code];
       if (t) {
         state.tool = t;
