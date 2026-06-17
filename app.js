@@ -197,12 +197,16 @@
   }
 
   // ===== 渲染 =====
+  var RULER = 28;
+
   function render() {
     if (!state.grid) return;
     const cs = state.cellSize;
     const w = state.gridW, h = state.gridH;
-    board.width = w * cs;
-    board.height = h * cs;
+    const cw = w * cs, ch = h * cs;
+    board.width = cw + RULER;
+    board.height = ch + RULER;
+    const ox = RULER, oy = RULER;
 
     // 背景: 棋盘格透明示意
     ctx.clearRect(0, 0, board.width, board.height);
@@ -210,9 +214,8 @@
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = state.grid[y][x];
-        const px = x * cs, py = y * cs;
+        const px = ox + x * cs, py = oy + y * cs;
         if (idx === TRANSPARENT) {
-          // 透明格画浅棋盘
           const dark = (x + y) % 2 === 0;
           ctx.fillStyle = dark ? '#f0f0f0' : '#e4e4e4';
           ctx.fillRect(px, py, cs, cs);
@@ -229,12 +232,12 @@
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let x = 0; x <= w; x++) {
-        ctx.moveTo(x * cs + 0.5, 0);
-        ctx.lineTo(x * cs + 0.5, h * cs);
+        ctx.moveTo(ox + x * cs + 0.5, oy);
+        ctx.lineTo(ox + x * cs + 0.5, oy + ch);
       }
       for (let y = 0; y <= h; y++) {
-        ctx.moveTo(0, y * cs + 0.5);
-        ctx.lineTo(w * cs, y * cs + 0.5);
+        ctx.moveTo(ox, oy + y * cs + 0.5);
+        ctx.lineTo(ox + cw, oy + y * cs + 0.5);
       }
       ctx.stroke();
 
@@ -242,12 +245,12 @@
       ctx.strokeStyle = 'rgba(0,0,0,0.38)';
       ctx.beginPath();
       for (let x = 0; x <= w; x += 10) {
-        ctx.moveTo(x * cs + 0.5, 0);
-        ctx.lineTo(x * cs + 0.5, h * cs);
+        ctx.moveTo(ox + x * cs + 0.5, oy);
+        ctx.lineTo(ox + x * cs + 0.5, oy + ch);
       }
       for (let y = 0; y <= h; y += 10) {
-        ctx.moveTo(0, y * cs + 0.5);
-        ctx.lineTo(w * cs, y * cs + 0.5);
+        ctx.moveTo(ox, oy + y * cs + 0.5);
+        ctx.lineTo(ox + cw, oy + y * cs + 0.5);
       }
       ctx.stroke();
     }
@@ -263,12 +266,88 @@
           if (idx === TRANSPARENT) continue;
           const c = PALETTE[idx];
           const rgb = c.rgb;
-          // 自动选黑/白字
           const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
           ctx.fillStyle = lum > 0.55 ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)';
-          ctx.fillText(c.code, x * cs + cs / 2, y * cs + cs / 2);
+          ctx.fillText(c.code, ox + x * cs + cs / 2, oy + y * cs + cs / 2);
         }
       }
+    }
+
+    // ===== 坐标刻度尺 =====
+    drawRuler(w, h, cs, ox, oy, cw, ch);
+  }
+
+  function drawRuler(w, h, cs, ox, oy, cw, ch) {
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, board.width, RULER);
+    ctx.fillRect(0, 0, RULER, board.height);
+    ctx.strokeStyle = '#d0d4da';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(RULER - 0.5, 0); ctx.lineTo(RULER - 0.5, board.height);
+    ctx.moveTo(0, RULER - 0.5); ctx.lineTo(board.width, RULER - 0.5);
+    ctx.stroke();
+
+    var tickFont = Math.max(9, Math.min(11, cs * 0.55));
+    ctx.font = tickFont + 'px ui-monospace, Menlo, monospace';
+    ctx.fillStyle = '#5c6470';
+    ctx.strokeStyle = '#8a929c';
+    ctx.lineWidth = 1;
+
+    // 顶部 X 轴
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (let x = 0; x <= w; x++) {
+      var px = ox + x * cs;
+      var isMajor = x % 10 === 0;
+      ctx.beginPath();
+      ctx.moveTo(px + 0.5, RULER - (isMajor ? 8 : 4));
+      ctx.lineTo(px + 0.5, RULER);
+      ctx.stroke();
+      if (isMajor && x < w) {
+        ctx.fillText(String(x), px + cs / 2, RULER - 9);
+      }
+    }
+
+    // 左侧 Y 轴
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let y = 0; y <= h; y++) {
+      var py = oy + y * cs;
+      var isMajor = y % 10 === 0;
+      ctx.beginPath();
+      ctx.moveTo(RULER - (isMajor ? 8 : 4), py + 0.5);
+      ctx.lineTo(RULER, py + 0.5);
+      ctx.stroke();
+      if (isMajor && y < h) {
+        ctx.fillText(String(y), RULER - 9, py + cs / 2);
+      }
+    }
+
+    // 右侧 X 轴 (镜像)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    var rx = ox + cw;
+    for (let x = 0; x <= w; x++) {
+      var px = ox + x * cs;
+      var isMajor = x % 10 === 0;
+      ctx.beginPath();
+      ctx.moveTo(px + 0.5, RULER - (isMajor ? 8 : 4));
+      ctx.lineTo(px + 0.5, RULER);
+      ctx.stroke();
+    }
+
+    // 底部 Y 轴 (镜像)
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    var by = oy + ch;
+    for (let y = 0; y <= h; y++) {
+      var py = oy + y * cs;
+      var isMajor = y % 10 === 0;
+      ctx.beginPath();
+      ctx.moveTo(RULER - (isMajor ? 8 : 4), py + 0.5);
+      ctx.lineTo(RULER, py + 0.5);
+      ctx.stroke();
     }
   }
 
@@ -277,8 +356,8 @@
     const rect = board.getBoundingClientRect();
     const scaleX = board.width / rect.width;
     const scaleY = board.height / rect.height;
-    const px = (e.clientX - rect.left) * scaleX;
-    const py = (e.clientY - rect.top) * scaleY;
+    const px = (e.clientX - rect.left) * scaleX - RULER;
+    const py = (e.clientY - rect.top) * scaleY - RULER;
     const x = Math.floor(px / state.cellSize);
     const y = Math.floor(py / state.cellSize);
     if (x < 0 || x >= state.gridW || y < 0 || y >= state.gridH) return null;
@@ -447,6 +526,10 @@
     $('canvas-empty').classList.toggle('hidden', on);
     $('canvas-wrap').classList.toggle('hidden', !on);
     $('canvas-toolbar').classList.toggle('hidden', !on);
+  }
+
+  function updateBoardCursor() {
+    board.style.cursor = state.tool === 'move' ? 'grab' : 'crosshair';
   }
 
   // ===== 导出 =====
@@ -637,6 +720,7 @@
         document.querySelectorAll('#tool-buttons .tool').forEach((x) => x.classList.remove('active'));
         b.classList.add('active');
         state.tool = b.dataset.tool;
+        updateBoardCursor();
       });
     });
 
@@ -759,6 +843,7 @@
         state.tool = t;
         document.querySelectorAll('#tool-buttons .tool').forEach((x) =>
           x.classList.toggle('active', x.dataset.tool === t));
+        updateBoardCursor();
       }
     });
     window.addEventListener('keyup', (e) => {
