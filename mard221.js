@@ -292,24 +292,24 @@
   // 找到与给定 RGB 最接近的 MARD 色 (使用 CIEDE2000 的简化版: CIELAB 距离)
   // 返回 PALETTE 的索引. 默认排除透明色 (除非 includeTransparent)
   // 使用量化 RGB 缓存提升性能
-  var NEAREST_CACHE = {};
-  var CACHE_Q = 8; // 量化步长
+  const NEAREST_CACHE = {};
+  const CACHE_Q = 8;
 
   function nearestIndex(r, g, b, includeTransparent) {
-    var qr = Math.round(r / CACHE_Q), qg = Math.round(g / CACHE_Q), qb = Math.round(b / CACHE_Q);
-    var key = (qr << 12) | (qg << 6) | qb;
+    const qr = Math.round(r / CACHE_Q), qg = Math.round(g / CACHE_Q), qb = Math.round(b / CACHE_Q);
+    let key = (qr << 12) | (qg << 6) | qb;
     if (includeTransparent) key |= 1 << 18;
     if (NEAREST_CACHE[key] !== undefined) return NEAREST_CACHE[key];
-    var target = rgbToLab(r, g, b);
-    var best = -1, bestD = Infinity;
-    for (var i = 0; i < PALETTE.length; i++) {
-      var c = PALETTE[i];
+    const target = rgbToLab(r, g, b);
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < PALETTE.length; i++) {
+      const c = PALETTE[i];
       if (c.transparent && !includeTransparent) continue;
-      var lab = getLab(i);
-      var dL = target.L - lab.L;
-      var da = target.a - lab.a;
-      var db = target.b - lab.b;
-      var d = dL * dL + da * da + db * db;
+      const lab = getLab(i);
+      const dL = target.L - lab.L;
+      const da = target.a - lab.a;
+      const db = target.b - lab.b;
+      const d = dL * dL + da * da + db * db;
       if (d < bestD) { bestD = d; best = i; }
     }
     NEAREST_CACHE[key] = best;
@@ -322,10 +322,7 @@
     for (let i = 0; i < PALETTE.length; i++) {
       const c = PALETTE[i];
       if (c.transparent && !includeTransparent) continue;
-      const dr = 0.30 * (r - c.rgb.r);
-      const dg = 0.59 * (g - c.rgb.g);
-      const db = 0.11 * (b - c.rgb.b);
-      const d = dr * dr + dg * dg + db * db;
+      const d = 0.299 * (r - c.rgb.r) ** 2 + 0.587 * (g - c.rgb.g) ** 2 + 0.114 * (b - c.rgb.b) ** 2;
       if (d < bestD) { bestD = d; best = i; }
     }
     return best;

@@ -42,9 +42,9 @@
   function toast(msg, ms) {
     const t = $('toast');
     t.textContent = msg;
-    t.classList.remove('hidden');
+    t.classList.add('show');
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.add('hidden'), ms || 1800);
+    toast._t = setTimeout(() => t.classList.remove('show'), ms || 1800);
   }
 
   function cloneGrid(g) {
@@ -122,13 +122,19 @@
       const rgbToLab = window.MARD221.rgbToLab;
       const buf = new Float32Array(w * h * 3);
       for (let i = 0; i < w * h; i++) {
+        if (data[i * 4 + 3] < 128 && state.includeTransparent) continue;
         buf[i * 3] = data[i * 4];
         buf[i * 3 + 1] = data[i * 4 + 1];
         buf[i * 3 + 2] = data[i * 4 + 2];
       }
-      var MAX_LAB_ERR = 22;
+      const MAX_LAB_ERR = 22;
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
+          const ai = (y * w + x) * 4;
+          if (data[ai + 3] < 128 && state.includeTransparent) {
+            grid[y][x] = TRANSPARENT;
+            continue;
+          }
           const i = (y * w + x) * 3;
           const r = buf[i], g = buf[i + 1], b = buf[i + 2];
           const idx = window.MARD221.nearestIndex(
@@ -136,20 +142,17 @@
           );
           grid[y][x] = idx;
           const pal = PALETTE[idx].rgb;
-          // 在 LAB 空间计算误差 (感知均匀)
           const curLab = rgbToLab(clampByte(r), clampByte(g), clampByte(b));
           const palLab = window.MARD221.getLab(idx);
-          var eL = curLab.L - palLab.L;
-          var ea = curLab.a - palLab.a;
-          var eb = curLab.b - palLab.b;
-          // 钳位: 限制单像素误差幅度
-          var mag = Math.sqrt(eL * eL + ea * ea + eb * eb);
-          if (mag > MAX_LAB_ERR) { var s = MAX_LAB_ERR / mag; eL *= s; ea *= s; eb *= s; }
-          // 将 LAB 误差按比例映射回 RGB 空间用于扩散
-          var dr = r - pal.r, dg = g - pal.g, db = b - pal.b;
-          var rgbMag = Math.sqrt(dr * dr + dg * dg + db * db);
-          var labMag = Math.sqrt(eL * eL + ea * ea + eb * eb);
-          var ratio = rgbMag > 0.5 ? labMag / rgbMag : 0;
+          let eL = curLab.L - palLab.L;
+          let ea = curLab.a - palLab.a;
+          let eb = curLab.b - palLab.b;
+          const mag = Math.sqrt(eL * eL + ea * ea + eb * eb);
+          if (mag > MAX_LAB_ERR) { const s = MAX_LAB_ERR / mag; eL *= s; ea *= s; eb *= s; }
+          let dr = r - pal.r, dg = g - pal.g, db = b - pal.b;
+          const rgbMag = Math.sqrt(dr * dr + dg * dg + db * db);
+          const labMag = Math.sqrt(eL * eL + ea * ea + eb * eb);
+          const ratio = rgbMag > 0.5 ? labMag / rgbMag : 0;
           dr *= ratio; dg *= ratio; db *= ratio;
           distribute(buf, w, h, x + 1, y, dr, dg, db, 7 / 16);
           distribute(buf, w, h, x - 1, y + 1, dr, dg, db, 3 / 16);
@@ -197,7 +200,7 @@
   }
 
   // ===== 渲染 =====
-  var RULER = 28;
+  const RULER = 28;
 
   function render() {
     if (!state.grid) return;
@@ -288,8 +291,8 @@
     ctx.moveTo(0, RULER - 0.5); ctx.lineTo(board.width, RULER - 0.5);
     ctx.stroke();
 
-    var step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
-    var tickFont = Math.max(9, Math.min(11, cs * 0.55));
+    const step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
+    const tickFont = Math.max(9, Math.min(11, cs * 0.55));
     ctx.font = tickFont + 'px ui-monospace, Menlo, monospace';
     ctx.fillStyle = '#5c6470';
     ctx.strokeStyle = '#8a929c';
@@ -299,8 +302,8 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     for (let x = 0; x <= w; x++) {
-      var px = ox + x * cs;
-      var isMajor = x % step === 0 || x % 10 === 0;
+      const px = ox + x * cs;
+      const isMajor = x % step === 0 || x % 10 === 0;
       ctx.beginPath();
       ctx.moveTo(px + 0.5, RULER - (x % 10 === 0 ? 8 : 4));
       ctx.lineTo(px + 0.5, RULER);
@@ -310,12 +313,11 @@
       }
     }
 
-    // 左侧 Y 轴
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let y = 0; y <= h; y++) {
-      var py = oy + y * cs;
-      var isMajor = y % step === 0 || y % 10 === 0;
+      const py = oy + y * cs;
+      const isMajor = y % step === 0 || y % 10 === 0;
       ctx.beginPath();
       ctx.moveTo(RULER - (y % 10 === 0 ? 8 : 4), py + 0.5);
       ctx.lineTo(RULER, py + 0.5);
@@ -325,12 +327,11 @@
       }
     }
 
-    // 右侧 X 轴 (镜像)
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let x = 0; x <= w; x++) {
-      var px = ox + x * cs;
-      var isMajor = x % step === 0 || x % 10 === 0;
+      const px = ox + x * cs;
+      const isMajor = x % step === 0 || x % 10 === 0;
       ctx.beginPath();
       ctx.moveTo(px + 0.5, oy + ch);
       ctx.lineTo(px + 0.5, oy + ch + (x % 10 === 0 ? 8 : 4));
@@ -340,12 +341,11 @@
       }
     }
 
-    // 底部 Y 轴 (镜像)
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     for (let y = 0; y <= h; y++) {
-      var py = oy + y * cs;
-      var isMajor = y % step === 0 || y % 10 === 0;
+      const py = oy + y * cs;
+      const isMajor = y % step === 0 || y % 10 === 0;
       ctx.beginPath();
       ctx.moveTo(ox + cw, py + 0.5);
       ctx.lineTo(ox + cw + (y % 10 === 0 ? 8 : 4), py + 0.5);
@@ -426,7 +426,7 @@
     $('cur-swatch').style.background = c.hex;
     $('cur-code').textContent = c.code + (c.transparent ? ' (透)' : '');
     document.querySelectorAll('.pc').forEach((el) => {
-      el.classList.toggle('selected', el.dataset.idx == idx);
+      el.classList.toggle('selected', parseInt(el.dataset.idx, 10) === idx);
     });
   }
 
@@ -451,7 +451,6 @@
       label.className = 'pc-label';
       label.textContent = c.code;
       el.appendChild(label);
-      el.addEventListener('click', () => setCurrentColor(idx));
       grid.appendChild(el);
     });
   }
@@ -544,168 +543,130 @@
   }
 
   // ===== 导出 =====
-  var MAX_CANVAS_PX = 8192;
+  const MAX_CANVAS_PX = 8192;
 
   function calcExportCellSize(desiredCs, w, h) {
-    var cs = desiredCs;
+    let cs = desiredCs;
     if (w * cs > MAX_CANVAS_PX) cs = Math.floor(MAX_CANVAS_PX / w);
     if (h * cs > MAX_CANVAS_PX) cs = Math.min(cs, Math.floor(MAX_CANVAS_PX / h));
     return Math.max(4, cs);
   }
 
-  function exportCodedPNG() {
-    if (!state.grid) return;
-    var w = state.gridW, h = state.gridH;
-    var cs = calcExportCellSize(48, w, h);
-    var c = document.createElement('canvas');
-    c.width = w * cs; c.height = h * cs;
-    const x = c.getContext('2d');
-    // 白底
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+  function drawExportGridCells(ec, cs, w, h, ox, oy) {
     for (let y = 0; y < h; y++) {
-      for (let i = 0; i < w; i++) {
-        const idx = state.grid[y][i];
-        const px = i * cs, py = y * cs;
+      for (let x = 0; x < w; x++) {
+        const idx = state.grid[y][x];
+        const px = ox + x * cs, py = oy + y * cs;
         if (idx === TRANSPARENT) {
-          // 透明格画斜线纹
-          x.fillStyle = '#f6f6f6'; x.fillRect(px, py, cs, cs);
-          x.strokeStyle = '#ccc'; x.lineWidth = 1;
-          x.beginPath();
-          x.moveTo(px, py + cs); x.lineTo(px + cs, py);
-          x.stroke();
+          ec.fillStyle = '#f6f6f6'; ec.fillRect(px, py, cs, cs);
+          ec.strokeStyle = '#ccc'; ec.lineWidth = 1;
+          ec.beginPath(); ec.moveTo(px, py + cs); ec.lineTo(px + cs, py); ec.stroke();
         } else {
-          x.fillStyle = PALETTE[idx].hex; x.fillRect(px, py, cs, cs);
+          ec.fillStyle = PALETTE[idx].hex; ec.fillRect(px, py, cs, cs);
         }
       }
     }
-    // 网格线
-    x.strokeStyle = 'rgba(0,0,0,0.25)'; x.lineWidth = 1;
-    x.beginPath();
-    for (let i = 0; i <= w; i++) { x.moveTo(i * cs + 0.5, 0); x.lineTo(i * cs + 0.5, h * cs); }
-    for (let j = 0; j <= h; j++) { x.moveTo(0, j * cs + 0.5); x.lineTo(w * cs, j * cs + 0.5); }
-    x.stroke();
-    x.strokeStyle = 'rgba(0,0,0,0.5)'; x.lineWidth = 2;
-    x.beginPath();
-    for (let i = 0; i <= w; i += 10) { x.moveTo(i * cs, 0); x.lineTo(i * cs, h * cs); }
-    for (let j = 0; j <= h; j += 10) { x.moveTo(0, j * cs); x.lineTo(w * cs, j * cs); }
-    x.stroke();
-    // 色号
-    x.font = `600 ${Math.floor(cs / 3)}px ui-monospace, Menlo, monospace`;
-    x.textAlign = 'center'; x.textBaseline = 'middle';
+  }
+
+  function drawExportGridLines(ec, cs, w, h, ox, oy, cw, ch) {
+    ec.strokeStyle = 'rgba(0,0,0,0.2)'; ec.lineWidth = 1;
+    ec.beginPath();
+    for (let i = 0; i <= w; i++) { ec.moveTo(ox + i * cs + 0.5, oy); ec.lineTo(ox + i * cs + 0.5, oy + ch); }
+    for (let j = 0; j <= h; j++) { ec.moveTo(ox, oy + j * cs + 0.5); ec.lineTo(ox + cw, oy + j * cs + 0.5); }
+    ec.stroke();
+    ec.strokeStyle = 'rgba(0,0,0,0.45)'; ec.lineWidth = 2;
+    ec.beginPath();
+    for (let i = 0; i <= w; i += 10) { ec.moveTo(ox + i * cs, oy); ec.lineTo(ox + i * cs, oy + ch); }
+    for (let j = 0; j <= h; j += 10) { ec.moveTo(ox, oy + j * cs); ec.lineTo(ox + cw, oy + j * cs); }
+    ec.stroke();
+  }
+
+  function drawExportCodeLabels(ec, cs, w, h, ox, oy) {
+    ec.font = `600 ${Math.floor(cs / 3)}px ui-monospace, Menlo, monospace`;
+    ec.textAlign = 'center'; ec.textBaseline = 'middle';
     for (let y = 0; y < h; y++) {
-      for (let i = 0; i < w; i++) {
-        const idx = state.grid[y][i];
+      for (let x = 0; x < w; x++) {
+        const idx = state.grid[y][x];
         if (idx === TRANSPARENT) continue;
-        const col = PALETTE[idx];
-        const rgb = col.rgb;
+        const col = PALETTE[idx]; const rgb = col.rgb;
         const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-        x.fillStyle = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
-        x.fillText(col.code, i * cs + cs / 2, y * cs + cs / 2);
+        ec.fillStyle = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
+        ec.fillText(col.code, ox + x * cs + cs / 2, oy + y * cs + cs / 2);
       }
     }
+  }
+
+  function exportCodedPNG() {
+    if (!state.grid) return;
+    const w = state.gridW, h = state.gridH;
+    const cs = calcExportCellSize(48, w, h);
+    const c = document.createElement('canvas');
+    c.width = w * cs; c.height = h * cs;
+    const ec = c.getContext('2d');
+    ec.fillStyle = '#ffffff'; ec.fillRect(0, 0, c.width, c.height);
+    drawExportGridCells(ec, cs, w, h, 0, 0);
+    drawExportGridLines(ec, cs, w, h, 0, 0, w * cs, h * cs);
+    drawExportCodeLabels(ec, cs, w, h, 0, 0);
     downloadCanvas(c, '拼豆图纸-带色号.png');
     toast('已导出带色号图纸');
   }
 
   function exportBitmapPNG() {
     if (!state.grid) return;
-    var w = state.gridW, h = state.gridH;
-    var cs = calcExportCellSize(48, w, h);
-    var ruler = Math.round(cs * 1.8);
-    var cw = w * cs, ch = h * cs;
-    var c = document.createElement('canvas');
+    const w = state.gridW, h = state.gridH;
+    const cs = calcExportCellSize(48, w, h);
+    const ruler = Math.round(cs * 1.8);
+    const cw = w * cs, ch = h * cs;
+    const c = document.createElement('canvas');
     c.width = cw + ruler * 2; c.height = ch + ruler * 2;
-    var x = c.getContext('2d');
-    var ox = ruler, oy = ruler;
+    const ec = c.getContext('2d');
+    const ox = ruler, oy = ruler;
 
-    // 白底
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
-
-    // 绘制格子
-    for (let y = 0; y < h; y++) {
-      for (let i = 0; i < w; i++) {
-        const idx = state.grid[y][i];
-        const px = ox + i * cs, py = oy + y * cs;
-        if (idx === TRANSPARENT) {
-          x.fillStyle = '#f6f6f6'; x.fillRect(px, py, cs, cs);
-          x.strokeStyle = '#ccc'; x.lineWidth = 1;
-          x.beginPath(); x.moveTo(px, py + cs); x.lineTo(px + cs, py); x.stroke();
-        } else {
-          x.fillStyle = PALETTE[idx].hex; x.fillRect(px, py, cs, cs);
-        }
-      }
-    }
-
-    // 网格线
-    x.strokeStyle = 'rgba(0,0,0,0.2)'; x.lineWidth = 1;
-    x.beginPath();
-    for (let i = 0; i <= w; i++) { x.moveTo(ox + i * cs + 0.5, oy); x.lineTo(ox + i * cs + 0.5, oy + ch); }
-    for (let j = 0; j <= h; j++) { x.moveTo(ox, oy + j * cs + 0.5); x.lineTo(ox + cw, oy + j * cs + 0.5); }
-    x.stroke();
-    x.strokeStyle = 'rgba(0,0,0,0.45)'; x.lineWidth = 2;
-    x.beginPath();
-    for (let i = 0; i <= w; i += 10) { x.moveTo(ox + i * cs, oy); x.lineTo(ox + i * cs, oy + ch); }
-    for (let j = 0; j <= h; j += 10) { x.moveTo(ox, oy + j * cs); x.lineTo(ox + cw, oy + j * cs); }
-    x.stroke();
-
-    // 色号
-    x.font = `600 ${Math.floor(cs / 3)}px ui-monospace, Menlo, monospace`;
-    x.textAlign = 'center'; x.textBaseline = 'middle';
-    for (let y = 0; y < h; y++) {
-      for (let i = 0; i < w; i++) {
-        const idx = state.grid[y][i];
-        if (idx === TRANSPARENT) continue;
-        const col = PALETTE[idx]; const rgb = col.rgb;
-        const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-        x.fillStyle = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
-        x.fillText(col.code, ox + i * cs + cs / 2, oy + y * cs + cs / 2);
-      }
-    }
+    ec.fillStyle = '#ffffff'; ec.fillRect(0, 0, c.width, c.height);
+    drawExportGridCells(ec, cs, w, h, ox, oy);
+    drawExportGridLines(ec, cs, w, h, ox, oy, cw, ch);
+    drawExportCodeLabels(ec, cs, w, h, ox, oy);
 
     // 刻度尺
-    x.fillStyle = '#f8f9fa';
-    x.fillRect(0, 0, c.width, ruler); x.fillRect(0, 0, ruler, c.height);
-    x.fillRect(ox + cw, 0, ruler, c.height); x.fillRect(0, oy + ch, c.width, ruler);
-    x.strokeStyle = '#d0d4da'; x.lineWidth = 1;
-    x.beginPath();
-    x.moveTo(ruler - 0.5, 0); x.lineTo(ruler - 0.5, c.height);
-    x.moveTo(0, ruler - 0.5); x.lineTo(c.width, ruler - 0.5);
-    x.moveTo(ox + cw + 0.5, 0); x.lineTo(ox + cw + 0.5, c.height);
-    x.moveTo(0, oy + ch + 0.5); x.lineTo(c.width, oy + ch + 0.5);
-    x.stroke();
+    ec.fillStyle = '#f8f9fa';
+    ec.fillRect(0, 0, c.width, ruler); ec.fillRect(0, 0, ruler, c.height);
+    ec.fillRect(ox + cw, 0, ruler, c.height); ec.fillRect(0, oy + ch, c.width, ruler);
+    ec.strokeStyle = '#d0d4da'; ec.lineWidth = 1;
+    ec.beginPath();
+    ec.moveTo(ruler - 0.5, 0); ec.lineTo(ruler - 0.5, c.height);
+    ec.moveTo(0, ruler - 0.5); ec.lineTo(c.width, ruler - 0.5);
+    ec.moveTo(ox + cw + 0.5, 0); ec.lineTo(ox + cw + 0.5, c.height);
+    ec.moveTo(0, oy + ch + 0.5); ec.lineTo(c.width, oy + ch + 0.5);
+    ec.stroke();
 
-    var step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
-    var tickFont = Math.max(9, Math.min(11, cs * 0.55));
-    x.font = tickFont + 'px ui-monospace, Menlo, monospace';
-    x.fillStyle = '#5c6470'; x.strokeStyle = '#8a929c'; x.lineWidth = 1;
+    const step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
+    const tickFont = Math.max(9, Math.min(11, cs * 0.55));
+    ec.font = tickFont + 'px ui-monospace, Menlo, monospace';
+    ec.fillStyle = '#5c6470'; ec.strokeStyle = '#8a929c'; ec.lineWidth = 1;
 
-    // 顶部 X 轴
-    x.textAlign = 'center'; x.textBaseline = 'bottom';
+    ec.textAlign = 'center'; ec.textBaseline = 'bottom';
     for (let i = 0; i <= w; i++) {
-      var px = ox + i * cs; var isMaj = i % 10 === 0;
-      x.beginPath(); x.moveTo(px + 0.5, ruler - (isMaj ? 8 : 4)); x.lineTo(px + 0.5, ruler); x.stroke();
-      if ((i % step === 0 || isMaj) && i < w) x.fillText(String(i + 1), px + cs / 2, ruler - 9);
+      const px = ox + i * cs; const isMaj = i % 10 === 0;
+      ec.beginPath(); ec.moveTo(px + 0.5, ruler - (isMaj ? 8 : 4)); ec.lineTo(px + 0.5, ruler); ec.stroke();
+      if ((i % step === 0 || isMaj) && i < w) ec.fillText(String(i + 1), px + cs / 2, ruler - 9);
     }
-    // 左侧 Y 轴
-    x.textAlign = 'right'; x.textBaseline = 'middle';
+    ec.textAlign = 'right'; ec.textBaseline = 'middle';
     for (let j = 0; j <= h; j++) {
-      var py = oy + j * cs; var isMaj = j % 10 === 0;
-      x.beginPath(); x.moveTo(ruler - (isMaj ? 8 : 4), py + 0.5); x.lineTo(ruler, py + 0.5); x.stroke();
-      if ((j % step === 0 || isMaj) && j < h) x.fillText(String(j + 1), ruler - 9, py + cs / 2);
+      const py = oy + j * cs; const isMaj = j % 10 === 0;
+      ec.beginPath(); ec.moveTo(ruler - (isMaj ? 8 : 4), py + 0.5); ec.lineTo(ruler, py + 0.5); ec.stroke();
+      if ((j % step === 0 || isMaj) && j < h) ec.fillText(String(j + 1), ruler - 9, py + cs / 2);
     }
-    // 右侧 X 轴
-    x.textAlign = 'center'; x.textBaseline = 'top';
+    ec.textAlign = 'center'; ec.textBaseline = 'top';
     for (let i = 0; i <= w; i++) {
-      var px = ox + i * cs; var isMaj = i % 10 === 0;
-      x.beginPath(); x.moveTo(px + 0.5, oy + ch); x.lineTo(px + 0.5, oy + ch + (isMaj ? 8 : 4)); x.stroke();
-      if ((i % step === 0 || isMaj) && i < w) x.fillText(String(i + 1), px + cs / 2, oy + ch + 9);
+      const px = ox + i * cs; const isMaj = i % 10 === 0;
+      ec.beginPath(); ec.moveTo(px + 0.5, oy + ch); ec.lineTo(px + 0.5, oy + ch + (isMaj ? 8 : 4)); ec.stroke();
+      if ((i % step === 0 || isMaj) && i < w) ec.fillText(String(i + 1), px + cs / 2, oy + ch + 9);
     }
-    // 底部 Y 轴
-    x.textAlign = 'left'; x.textBaseline = 'middle';
+    ec.textAlign = 'left'; ec.textBaseline = 'middle';
     for (let j = 0; j <= h; j++) {
-      var py = oy + j * cs; var isMaj = j % 10 === 0;
-      x.beginPath(); x.moveTo(ox + cw, py + 0.5); x.lineTo(ox + cw + (isMaj ? 8 : 4), py + 0.5); x.stroke();
-      if ((j % step === 0 || isMaj) && j < h) x.fillText(String(j + 1), ox + cw + 9, py + cs / 2);
+      const py = oy + j * cs; const isMaj = j % 10 === 0;
+      ec.beginPath(); ec.moveTo(ox + cw, py + 0.5); ec.lineTo(ox + cw + (isMaj ? 8 : 4), py + 0.5); ec.stroke();
+      if ((j % step === 0 || isMaj) && j < h) ec.fillText(String(j + 1), ox + cw + 9, py + cs / 2);
     }
 
     downloadCanvas(c, '拼豆图纸-位图.png');
@@ -714,11 +675,11 @@
 
   function exportSVG() {
     if (!state.grid) return;
-    var w = state.gridW, h = state.gridH;
-    var cs = 20, ruler = 36;
-    var cw = w * cs, ch = h * cs;
-    var totalW = cw + ruler * 2, totalH = ch + ruler * 2;
-    var parts = [];
+    const w = state.gridW, h = state.gridH;
+    const cs = 20, ruler = 36;
+    const cw = w * cs, ch = h * cs;
+    const totalW = cw + ruler * 2, totalH = ch + ruler * 2;
+    const parts = [];
     parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`);
     parts.push(`<rect width="${totalW}" height="${totalH}" fill="#fff"/>`);
 
@@ -728,11 +689,10 @@
     parts.push(`<rect x="${ruler + cw}" y="0" width="${ruler}" height="${totalH}" fill="#f8f9fa"/>`);
     parts.push(`<rect x="0" y="${ruler + ch}" width="${totalW}" height="${ruler}" fill="#f8f9fa"/>`);
 
-    // 格子
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        var idx = state.grid[y][x];
-        var px = ruler + x * cs, py = ruler + y * cs;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = state.grid[y][x];
+        const px = ruler + x * cs, py = ruler + y * cs;
         if (idx === TRANSPARENT) {
           parts.push(`<rect x="${px}" y="${py}" width="${cs}" height="${cs}" fill="#f6f6f6"/>`);
           parts.push(`<line x1="${px}" y1="${py + cs}" x2="${px + cs}" y2="${py}" stroke="#ccc" stroke-width="1"/>`);
@@ -742,57 +702,54 @@
       }
     }
 
-    // 网格线
-    for (var i = 0; i <= w; i++) {
-      var px = ruler + i * cs;
-      var sw = i % 10 === 0 ? 2 : 1;
-      var so = i % 10 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.2)';
+    for (let i = 0; i <= w; i++) {
+      const px = ruler + i * cs;
+      const sw = i % 10 === 0 ? 2 : 1;
+      const so = i % 10 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.2)';
       parts.push(`<line x1="${px}" y1="${ruler}" x2="${px}" y2="${ruler + ch}" stroke="${so}" stroke-width="${sw}"/>`);
     }
-    for (var j = 0; j <= h; j++) {
-      var py = ruler + j * cs;
-      var sw = j % 10 === 0 ? 2 : 1;
-      var so = j % 10 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.2)';
+    for (let j = 0; j <= h; j++) {
+      const py = ruler + j * cs;
+      const sw = j % 10 === 0 ? 2 : 1;
+      const so = j % 10 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.2)';
       parts.push(`<line x1="${ruler}" y1="${py}" x2="${ruler + cw}" y2="${py}" stroke="${so}" stroke-width="${sw}"/>`);
     }
 
-    // 色号
-    var fontSize = Math.floor(cs / 3);
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        var idx = state.grid[y][x];
+    const fontSize = Math.floor(cs / 3);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = state.grid[y][x];
         if (idx === TRANSPARENT) continue;
-        var col = PALETTE[idx]; var rgb = col.rgb;
-        var lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-        var fill = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
-        var tx = ruler + x * cs + cs / 2, ty = ruler + y * cs + cs / 2;
+        const col = PALETTE[idx]; const rgb = col.rgb;
+        const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+        const fill = lum > 0.55 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
+        const tx = ruler + x * cs + cs / 2, ty = ruler + y * cs + cs / 2;
         parts.push(`<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central" font-family="ui-monospace,Menlo,monospace" font-size="${fontSize}" font-weight="600" fill="${fill}">${col.code}</text>`);
       }
     }
 
-    // 刻度数字
-    var step = 1;
-    for (var i = 0; i < w; i++) {
+    const step = cs >= 18 ? 1 : cs >= 10 ? 5 : 10;
+    for (let i = 0; i < w; i++) {
       if ((i + 1) % step === 0) {
-        var tx = ruler + i * cs + cs / 2;
+        const tx = ruler + i * cs + cs / 2;
         parts.push(`<text x="${tx}" y="${ruler - 10}" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${i + 1}</text>`);
         parts.push(`<text x="${tx}" y="${ruler + ch + 16}" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${i + 1}</text>`);
       }
     }
-    for (var j = 0; j < h; j++) {
+    for (let j = 0; j < h; j++) {
       if ((j + 1) % step === 0) {
-        var ty = ruler + j * cs + cs / 2;
+        const ty = ruler + j * cs + cs / 2;
         parts.push(`<text x="${ruler - 10}" y="${ty}" text-anchor="end" dominant-baseline="central" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${j + 1}</text>`);
         parts.push(`<text x="${ruler + cw + 10}" y="${ty}" text-anchor="start" dominant-baseline="central" font-family="ui-monospace,Menlo,monospace" font-size="10" fill="#5c6470">${j + 1}</text>`);
       }
     }
 
     parts.push('</svg>');
-    var blob = new Blob([parts.join('\n')], { type: 'image/svg+xml;charset=utf-8' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
+    const blob = new Blob([parts.join('\n')], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url; a.download = '拼豆图纸.svg';
-    a.click(); URL.revokeObjectURL(url);
+    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast('已导出 SVG');
   }
 
@@ -821,7 +778,7 @@
     const a = document.createElement('a');
     a.href = url; a.download = '拼豆材料清单.csv';
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast('已导出材料清单');
   }
 
@@ -831,7 +788,7 @@
       const a = document.createElement('a');
       a.href = url; a.download = filename;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
   }
 
@@ -846,11 +803,11 @@
       const img = new Image();
       img.onload = () => {
         state.srcImage = img;
-        // 自适应默认宽度 ~71, 高度按比例
         const ratio = img.height / img.width;
-        let w = 71;
-        let h = Math.round(w * ratio);
-        if (h > 64) { h = 64; w = Math.round(h / ratio); }
+        const maxDim = 71;
+        let w, h;
+        if (ratio <= 1) { w = maxDim; h = Math.round(w * ratio); }
+        else { h = maxDim; w = Math.round(h / ratio); }
         w = clampInt(w, 4, 200);
         h = clampInt(h, 4, 200);
         $('grid-w').value = w;
@@ -879,6 +836,7 @@
     $('btn-reupload').addEventListener('click', () => $('file-input').click());
 
     // 设置
+    $('lock-ratio').addEventListener('change', () => { state.lockRatio = $('lock-ratio').checked; });
     $('btn-regen').addEventListener('click', () => { generatePattern(); toast('已重新生成'); });
     $('grid-w').addEventListener('change', () => {
       if (state.lockRatio && state.srcImage) {
@@ -981,7 +939,7 @@
 
     // 全局替换对话框
     $('btn-replace').addEventListener('click', openReplaceModal);
-    $('rep-cancel').addEventListener('click', () => $('replace-modal').classList.add('hidden'));
+    $('rep-cancel').addEventListener('click', () => { $('replace-modal').classList.add('hidden'); document.body.style.overflow = ''; });
     $('rep-from-select').addEventListener('change', updateReplaceFromSwatch);
     $('rep-to-input').addEventListener('input', updateReplaceToSwatch);
     $('rep-ok').addEventListener('click', () => {
@@ -993,6 +951,7 @@
       const n = globalReplace(fromIdx, toIdx);
       render(); updateMaterials(); pushHistory();
       $('replace-modal').classList.add('hidden');
+      document.body.style.overflow = '';
       toast(`已替换 ${n || 0} 格`);
     });
 
@@ -1019,7 +978,7 @@
       if (e.ctrlKey || e.metaKey) return;
       const map = { KeyV: 'move', KeyB: 'brush', KeyI: 'eyedropper', KeyE: 'eraser', KeyG: 'fill' };
       const t = map[e.code];
-      if (t) {
+      if (t && !e.repeat) {
         state.tool = t;
         document.querySelectorAll('#tool-buttons .tool').forEach((x) =>
           x.classList.toggle('active', x.dataset.tool === t));
@@ -1045,9 +1004,10 @@
       tip.textContent = `${c.code} ${c.name}`;
     }
     tip.classList.remove('hidden');
-    const wrapRect = $('canvas-wrap').getBoundingClientRect();
-    tip.style.left = (e.clientX - wrapRect.left + 12) + 'px';
-    tip.style.top = (e.clientY - wrapRect.top + 12) + 'px';
+    const wrap = $('canvas-wrap');
+    const wrapRect = wrap.getBoundingClientRect();
+    tip.style.left = (e.clientX - wrapRect.left + wrap.scrollLeft + 12) + 'px';
+    tip.style.top = (e.clientY - wrapRect.top + wrap.scrollTop + 12) + 'px';
   }
 
   function openReplaceModal() {
@@ -1072,6 +1032,7 @@
     $('rep-to-input').value = '';
     updateReplaceToSwatch();
     $('replace-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
   }
   function updateReplaceFromSwatch() {
     const idx = parseInt($('rep-from-select').value, 10);
@@ -1087,6 +1048,10 @@
   function init() {
     buildPalette();
     setCurrentColor(0);
+    $('palette-grid').addEventListener('click', (e) => {
+      const el = e.target.closest('.pc');
+      if (el) setCurrentColor(parseInt(el.dataset.idx, 10));
+    });
     bind();
     enableEditingUI(false);
   }
