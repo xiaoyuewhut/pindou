@@ -5,8 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>拼豆图纸生成器 · MARD221</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="landing.css" />
 </head>
 <body>
+  <!-- 首页 -->
+  <section id="landing" class="landing">
+    <div class="landing-bg"></div>
+    <div class="landing-content">
+      <div class="landing-logo">🫧</div>
+      <h1 class="landing-title">拼豆图纸生成器</h1>
+      <p class="landing-sub">上传图片，自动转为 MARD221 拼豆图纸</p>
+      <p class="landing-desc">支持 221 色配色 · 可编辑 · 可导出多种格式</p>
+      <button id="btn-start" class="btn-start">立即开始</button>
+      <div class="landing-features">
+        <div class="feature">
+          <span class="feature-icon">🎨</span>
+          <span class="feature-text">221 色配色</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✏️</span>
+          <span class="feature-text">在线编辑</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📤</span>
+          <span class="feature-text">多格式导出</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 主应用界面 -->
+  <div id="app-main" class="app-main hidden">
   <header class="topbar">
     <div class="brand">
       <span class="logo">🫧</span>
@@ -174,8 +203,10 @@
 
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
+  </div>
 
   <script src="mard221.js"></script>
   <script src="app.js"></script>
+  <script src="landing.js"></script>
 </body>
 </html>

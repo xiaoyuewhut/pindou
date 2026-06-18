@@ -411,6 +411,11 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 /* ===== Utilities ===== */
 .hidden { display: none !important; }
 #btn-reupload { margin-top: 6px; }
+.app-main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
